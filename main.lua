@@ -19,64 +19,152 @@ function color(hex)
   return c
 end
 
-local white  = color(0xFFFFF7FF)
-local black  = color(0x0A030DFF)
-local indigo = color(0x230C45FF)
-local navy   = color(0x192669FF)
-local green  = color(0x004D57FF)
-local pink   = color(0xFF6DEBFF)
-local red    = color(0xFF0059FF)
-local purple = color(0x7D2160FF)
-local brown  = color(0x96531DFF)
-local grey   = color(0x797366FF)
-local yellow = color(0xFFCF00FF)
-local blue   = color(0x2CE8F4FF)
+white  = color(0xFFFFF7FF)
+black  = color(0x0A030DFF)
+indigo = color(0x230C45FF)
+navy   = color(0x192669FF)
+green  = color(0x004D57FF)
+pink   = color(0xFF6DEBFF)
+red    = color(0xFF0059FF)
+purple = color(0x7D2160FF)
+brown  = color(0x96531DFF)
+grey   = color(0x797366FF)
+yellow = color(0xFFCF00FF)
+blue   = color(0x2CE8F4FF)
 
-local game_w = 256
-local game_h = 256
+view_w = 256 -- 224
+view_h = 256 -- 224
+local kw_w = 256
+local kw_h = 256
 local window_scale = 3
 local canvas
-function love.load()
-  love.window.setMode( game_w*window_scale, game_h*window_scale, {})
-  love.graphics.setDefaultFilter("nearest", "nearest")
-  love.graphics.setBackgroundColor(black)
-  canvas = love.graphics.newCanvas(game_w, game_h)
-end
 
-local x = game_w/2
-local y = 200
-local speed = 200
+local game = require "game"
+
+local down_shader, up_shader
+local down_shader_code = [[
+extern vec2 txl;
+extern number offset;
+
+vec4 effect(vec4 col, Image tex, vec2 tc, vec2 sc) {
+    vec2 halfpixel = txl * 0.5;
+    vec2 o = halfpixel * offset;
+
+    vec4 sum = Texel(tex, tc) * 4.0;
+    sum += Texel(tex, tc + vec2(-o.x, -o.y));
+    sum += Texel(tex, tc + vec2( o.x, -o.y));
+    sum += Texel(tex, tc + vec2(-o.x,  o.y));
+    sum += Texel(tex, tc + vec2( o.x,  o.y));
+
+    return sum / 8.0;
+}
+]]
+
+local up_shader_code = [[
+extern vec2 txl;
+extern number offset;
+
+vec4 effect(vec4 col, Image tex, vec2 tc, vec2 sc) {
+    vec2 halfpixel = txl * 0.5;
+    vec2 o = halfpixel * offset;
+
+    vec4 sum = vec4(0.0);
+    sum += Texel(tex, tc + vec2(-o.x * 2.0, 0.0));
+    sum += Texel(tex, tc + vec2( o.x * 2.0, 0.0));
+    sum += Texel(tex, tc + vec2(0.0, -o.y * 2.0));
+    sum += Texel(tex, tc + vec2(0.0,  o.y * 2.0));
+    sum += Texel(tex, tc + vec2(-o.x,  o.y)) * 2.0;
+    sum += Texel(tex, tc + vec2( o.x,  o.y)) * 2.0;
+    sum += Texel(tex, tc + vec2(-o.x, -o.y)) * 2.0;
+    sum += Texel(tex, tc + vec2( o.x, -o.y)) * 2.0;
+
+    return sum / 12.0;
+}
+]]
+
+local kw_buf = {}
+local levels = 4  -- adjust for blur strength (3-6 typical)
+local offset = 1.0
+local bloom = 1.0
+
+function love.load()
+  love.window.setMode( view_w*window_scale, view_h*window_scale, {})
+  love.graphics.setBackgroundColor(black)
+  canvas = love.graphics.newCanvas(view_w, view_h)
+  love.graphics.setDefaultFilter("nearest", "nearest")
+
+  down_shader = love.graphics.newShader(down_shader_code)
+  up_shader = love.graphics.newShader(up_shader_code)
+
+  local w, h = canvas:getDimensions()
+  local cur_w, cur_h = kw_w, kw_h
+  for i = 1, levels do
+    kw_buf[i] = love.graphics.newCanvas(cur_w, cur_h)
+    kw_buf[i]:setFilter("linear", "linear")
+    cur_w = math.max(1, math.floor(cur_w / 2))
+    cur_h = math.max(1, math.floor(cur_h / 2))
+  end
+end
 
 function love.update(dt)
   lurker.update() 
 
-  if love.keyboard.isDown("left")  then x = x - speed * dt end
-  if love.keyboard.isDown("right") then x = x + speed * dt end
-  if love.keyboard.isDown("up")    then y = y - speed * dt end
-  if love.keyboard.isDown("down")  then y = y + speed * dt end
-
-  x = math.clamp(x, 0, love.graphics.getWidth())
-  y = math.clamp(y, 0, love.graphics.getHeight())
+  game.update(dt)
 end
 
 function love.draw()
   -- draw game world to canvas
   love.graphics.setCanvas(canvas)
-  love.graphics.clear()
-  love.graphics.setColor(red)
-  love.graphics.circle("fill", x, y, 50)
-  love.graphics.setColor(1, 1, 1)
+  love.graphics.clear(0, 0, 0, 0)
+  game.draw()
 
-  -- TODO apply shaders here
+  -- Dual Kawase blur
+  local source = kw_buf[1]
+  love.graphics.setCanvas(source)
+  love.graphics.setColor(0, 0, 0, 0.1)
+  love.graphics.rectangle("fill", 0, 0, kw_w, kw_h)
+  love.graphics.setColor(1, 1, 1, 1)
+
+  love.graphics.draw(canvas, 0, 0, 0, 1, 1) -- todo adjust to pad game view 
+
+  for i = 2, levels do
+    local target = kw_buf[i]
+    love.graphics.setCanvas(target)
+    love.graphics.clear(0, 0, 0, 1)
+    local tw, th = target:getDimensions()
+    local sw, sh = source:getDimensions()
+    down_shader:send("txl", {1 / tw, 1 / th})
+    down_shader:send("offset", offset)
+    love.graphics.setShader(down_shader)
+    love.graphics.draw(source, 0, 0, 0, tw / sw, th / sh)
+    source = target
+  end
+
+  -- upsample, overwriting kw_buf except smallest
+  for i = levels - 1, 1, -1 do
+    local target = kw_buf[i]
+    love.graphics.setCanvas(target)
+    local tw, th = target:getDimensions()
+    local sw, sh = source:getDimensions()
+    up_shader:send("txl", {1 / sw, 1 / sh})
+    up_shader:send("offset", offset)
+    love.graphics.setShader(up_shader)
+    love.graphics.draw(source, 0, 0, 0, tw / sw, th / sh)
+    source = target
+  end
+
+  love.graphics.setShader()
   love.graphics.setCanvas()
+  love.graphics.clear(black)
+
   love.graphics.draw(canvas, 0, 0, 0, window_scale, window_scale)
 
+  love.graphics.setBlendMode("add")
+  love.graphics.setColor(bloom, bloom, bloom, 1)
+  love.graphics.draw(kw_buf[1], 0, 0, 0, window_scale, window_scale)
+  love.graphics.setBlendMode("alpha")
+
+  love.graphics.setColor(1, 1, 1, 1)
   love.graphics.print(string.format("avg frame: %.3f ms", 1000 * love.timer.getAverageDelta()), 10, 10)
 end
 
--- Helper
-function math.clamp(v, min, max)
-  if v < min then return min end
-  if v > max then return max end
-  return v
-end
