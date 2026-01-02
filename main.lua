@@ -87,8 +87,8 @@ local bloom = 1.0
 function love.load()
   love.window.setMode( view_w*window_scale, view_h*window_scale, {})
   love.graphics.setBackgroundColor(black)
-  canvas = love.graphics.newCanvas(view_w, view_h)
   love.graphics.setDefaultFilter("nearest", "nearest")
+  canvas = love.graphics.newCanvas(kw_w, kw_h)
 
   down_shader = love.graphics.newShader(down_shader_code)
   up_shader = love.graphics.newShader(up_shader_code)
@@ -110,20 +110,24 @@ end
 
 function love.draw()
   -- draw game world to canvas
+
   love.graphics.setCanvas(canvas)
+  love.graphics.push()
+  love.graphics.translate(kw_x, kw_y)
   love.graphics.clear(0, 0, 0, 0)
   game.draw()
+  love.graphics.pop()
 
   -- Dual Kawase blur
   local source = kw_buf[1]
   love.graphics.setCanvas(source)
 
   -- NOTE(lf): only partially clearing kawase buffer to get temporal blur
-  love.graphics.setColor(0, 0, 0, 0.1)
+  love.graphics.setColor(0, 0, 0, 1)
   love.graphics.rectangle("fill", 0, 0, kw_w, kw_h)
   love.graphics.setColor(1, 1, 1, 1)
 
-  love.graphics.draw(canvas, kw_x, kw_y, 0, 1, 1) -- todo adjust to pad game view 
+  love.graphics.draw(canvas, 0, 0, 0, 1, 1) -- todo adjust to pad game view 
 
   for i = 2, levels do
     local target = kw_buf[i]
@@ -149,18 +153,23 @@ function love.draw()
     love.graphics.draw(source, 0, 0, 0, tw / sw, th / sh)
     source = target
   end
-
   love.graphics.setShader()
+
   love.graphics.setCanvas()
+  love.graphics.push()
+  love.graphics.scale(window_scale, window_scale)
+  love.graphics.translate(-kw_x, -kw_y)
+
   love.graphics.clear(black)
 
-  love.graphics.draw(canvas, 0, 0, 0, window_scale, window_scale)
+  love.graphics.draw(canvas, 0, 0)
 
   love.graphics.setBlendMode("add")
   love.graphics.setColor(bloom, bloom, bloom, 1)
-  love.graphics.draw(kw_buf[1], -kw_x*window_scale, -kw_y*window_scale, 0, window_scale, window_scale)
+  love.graphics.draw(kw_buf[1], 0, 0)
   love.graphics.setBlendMode("alpha")
 
+  love.graphics.pop()
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.print(string.format("avg frame: %.3f ms", 1000 * love.timer.getAverageDelta()), 10, 10)
 end
