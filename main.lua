@@ -6,17 +6,12 @@ end
 local lurker = require "lurker"
 
 function color(hex)
-  c =  {
+  return {
     (math.floor((hex / 0x01000000)) % 0x100) / 0xFF,
     (math.floor((hex / 0x00010000)) % 0x100) / 0xFF,
     (math.floor((hex / 0x00000100)) % 0x100) / 0xFF,
     (math.floor((hex / 0x00000001)) % 0x100) / 0xFF
   }
-  print(hex)
-  for index, value in ipairs(c) do
-    print(value)
-  end
-  return c
 end
 
 white  = color(0xFFFFF7FF)
@@ -32,11 +27,13 @@ grey   = color(0x797366FF)
 yellow = color(0xFFCF00FF)
 blue   = color(0x2CE8F4FF)
 
-view_w = 256 -- 224
-view_h = 256 -- 224
+view_w = 224
+view_h = 224
 local kw_w = 256
 local kw_h = 256
-local window_scale = 3
+local kw_x = 0.5*(kw_w - view_w)
+local kw_y = 0.5*(kw_h - view_h)
+local window_scale = 4
 local canvas
 
 local game = require "game"
@@ -96,7 +93,6 @@ function love.load()
   down_shader = love.graphics.newShader(down_shader_code)
   up_shader = love.graphics.newShader(up_shader_code)
 
-  local w, h = canvas:getDimensions()
   local cur_w, cur_h = kw_w, kw_h
   for i = 1, levels do
     kw_buf[i] = love.graphics.newCanvas(cur_w, cur_h)
@@ -121,11 +117,13 @@ function love.draw()
   -- Dual Kawase blur
   local source = kw_buf[1]
   love.graphics.setCanvas(source)
+
+  -- NOTE(lf): only partially clearing kawase buffer to get temporal blur
   love.graphics.setColor(0, 0, 0, 0.1)
   love.graphics.rectangle("fill", 0, 0, kw_w, kw_h)
   love.graphics.setColor(1, 1, 1, 1)
 
-  love.graphics.draw(canvas, 0, 0, 0, 1, 1) -- todo adjust to pad game view 
+  love.graphics.draw(canvas, kw_x, kw_y, 0, 1, 1) -- todo adjust to pad game view 
 
   for i = 2, levels do
     local target = kw_buf[i]
@@ -140,7 +138,6 @@ function love.draw()
     source = target
   end
 
-  -- upsample, overwriting kw_buf except smallest
   for i = levels - 1, 1, -1 do
     local target = kw_buf[i]
     love.graphics.setCanvas(target)
@@ -161,7 +158,7 @@ function love.draw()
 
   love.graphics.setBlendMode("add")
   love.graphics.setColor(bloom, bloom, bloom, 1)
-  love.graphics.draw(kw_buf[1], 0, 0, 0, window_scale, window_scale)
+  love.graphics.draw(kw_buf[1], -kw_x*window_scale, -kw_y*window_scale, 0, window_scale, window_scale)
   love.graphics.setBlendMode("alpha")
 
   love.graphics.setColor(1, 1, 1, 1)
