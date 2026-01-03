@@ -106,9 +106,11 @@ function game.draw_player()
   local x = math.floor(player.x+0.5)
   local y = math.floor(player.y+0.5)
 
+  depth_shader:send("z", y)
+
   -- legs
   love.graphics.setColor(white)
-  local legy = y - height/4
+  local legy = y - 8
   local lx = x+0.5*player.xl-2
   local rx = x+0.5*player.xl+2
   love.graphics.polygon("fill", {rx - 1, legy, rx + 1, legy, player.rfoot.x + 1, player.rfoot.y, player.rfoot.x - 1, player.rfoot.y})
@@ -139,6 +141,8 @@ function game.draw_player()
 end
 
 function game.draw_flower(x, y, t)
+  depth_shader:send("z", y)
+
   local rng = love.math.newRandomGenerator(x * 0x505 + 0xDDD, y * 0xDDD + 0x505)
 
   local h = rng:random(35, 45)
@@ -195,12 +199,21 @@ function game.draw_flower(x, y, t)
 end
 
 function game.draw()
-  game.draw_player()
 
   game.draw_flower(100, view_h/2)
   game.draw_flower(60, view_h/2)
+
+
   game.draw_flower(140, view_h/2)
   game.draw_flower(180, view_h/2)
+
+  for j = view_h - 100, view_h, 25 do 
+  for i = 0, view_w, 10 do
+    game.draw_flower(i, j+50)
+  end
+  end
+
+  game.draw_player()
 
 end
 

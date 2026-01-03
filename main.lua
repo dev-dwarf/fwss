@@ -1,6 +1,6 @@
--- Optional: simple conf embedded (LÖVE allows it if no conf.lua)
 function love.conf(t)
   t.window.title = "FWSS"
+  t.window.depth = 16
 end
 
 local lurker = require "lurker"
@@ -34,26 +34,25 @@ local kw_h = 256
 local kw_x = 0.5*(kw_w - view_w)
 local kw_y = 0.5*(kw_h - view_h)
 local window_scale = 4
-local canvas
+local canvas, depth
 
-local game = require "game"
-
+depth_shader = 0
 local down_shader, up_shader
 local down_shader_code = [[
 extern vec2 txl;
 extern number offset;
 
 vec4 effect(vec4 col, Image tex, vec2 tc, vec2 sc) {
-    vec2 halfpixel = txl * 0.5;
-    vec2 o = halfpixel * offset;
+  vec2 halfpixel = txl * 0.5;
+  vec2 o = halfpixel * offset;
 
-    vec4 sum = Texel(tex, tc) * 4.0;
-    sum += Texel(tex, tc + vec2(-o.x, -o.y));
-    sum += Texel(tex, tc + vec2( o.x, -o.y));
-    sum += Texel(tex, tc + vec2(-o.x,  o.y));
-    sum += Texel(tex, tc + vec2( o.x,  o.y));
+  vec4 sum = Texel(tex, tc) * 4.0;
+  sum += Texel(tex, tc + vec2(-o.x, -o.y));
+  sum += Texel(tex, tc + vec2( o.x, -o.y));
+  sum += Texel(tex, tc + vec2(-o.x,  o.y));
+  sum += Texel(tex, tc + vec2( o.x,  o.y));
 
-    return sum / 8.0;
+  return sum / 8.0;
 }
 ]]
 
@@ -62,20 +61,34 @@ extern vec2 txl;
 extern number offset;
 
 vec4 effect(vec4 col, Image tex, vec2 tc, vec2 sc) {
-    vec2 halfpixel = txl * 0.5;
-    vec2 o = halfpixel * offset;
+  vec2 halfpixel = txl * 0.5;
+  vec2 o = halfpixel * offset;
 
-    vec4 sum = vec4(0.0);
-    sum += Texel(tex, tc + vec2(-o.x * 2.0, 0.0));
-    sum += Texel(tex, tc + vec2( o.x * 2.0, 0.0));
-    sum += Texel(tex, tc + vec2(0.0, -o.y * 2.0));
-    sum += Texel(tex, tc + vec2(0.0,  o.y * 2.0));
-    sum += Texel(tex, tc + vec2(-o.x,  o.y)) * 2.0;
-    sum += Texel(tex, tc + vec2( o.x,  o.y)) * 2.0;
-    sum += Texel(tex, tc + vec2(-o.x, -o.y)) * 2.0;
-    sum += Texel(tex, tc + vec2( o.x, -o.y)) * 2.0;
+  vec4 sum = vec4(0.0);
+  sum += Texel(tex, tc + vec2(-o.x * 2.0, 0.0));
+  sum += Texel(tex, tc + vec2( o.x * 2.0, 0.0));
+  sum += Texel(tex, tc + vec2(0.0, -o.y * 2.0));
+  sum += Texel(tex, tc + vec2(0.0,  o.y * 2.0));
+  sum += Texel(tex, tc + vec2(-o.x,  o.y)) * 2.0;
+  sum += Texel(tex, tc + vec2( o.x,  o.y)) * 2.0;
+  sum += Texel(tex, tc + vec2(-o.x, -o.y)) * 2.0;
+  sum += Texel(tex, tc + vec2( o.x, -o.y)) * 2.0;
 
-    return sum / 12.0;
+  return sum / 12.0;
+}
+]]
+
+local depth_shader_code = [[
+extern number z;
+vec4 position(mat4 transform_projection, vec4 vertex_position) {
+
+	vec4 vtx = vertex_position;
+  vec4 pos = transform_projection * vtx;
+	
+	pos.z = -z*0.00001;
+	pos.z *= pos.w;
+
+  return pos;
 }
 ]]
 
@@ -89,9 +102,11 @@ function love.load()
   love.graphics.setBackgroundColor(black)
   love.graphics.setDefaultFilter("nearest", "nearest")
   canvas = love.graphics.newCanvas(kw_w, kw_h)
+  depth = love.graphics.newCanvas(kw_w, kw_h, {format = "depth32f"})
 
   down_shader = love.graphics.newShader(down_shader_code)
   up_shader = love.graphics.newShader(up_shader_code)
+  depth_shader = love.graphics.newShader(depth_shader_code)
 
   local cur_w, cur_h = kw_w, kw_h
   for i = 1, levels do
@@ -102,6 +117,9 @@ function love.load()
   end
 end
 
+
+local game = require "game"
+
 function love.update(dt)
   lurker.update() 
 
@@ -111,11 +129,15 @@ end
 function love.draw()
   -- draw game world to canvas
 
-  love.graphics.setCanvas(canvas)
+  love.graphics.setCanvas({canvas, depthstencil = depth})
   love.graphics.push()
   love.graphics.translate(kw_x, kw_y)
-  love.graphics.clear(0, 0, 0, 0)
-  game.draw()
+  love.graphics.clear(0, 0, 0, 0, true, 1.0)
+  love.graphics.setDepthMode("lequal", true)
+  love.graphics.setShader(depth_shader)
+  	game.draw()
+  love.graphics.setShader()
+  love.graphics.setDepthMode()
   love.graphics.pop()
 
   -- Dual Kawase blur
@@ -163,6 +185,8 @@ function love.draw()
   love.graphics.clear(black)
 
   love.graphics.draw(canvas, 0, 0)
+
+
 
   love.graphics.setBlendMode("add")
   love.graphics.setColor(bloom, bloom, bloom, 1)
