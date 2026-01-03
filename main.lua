@@ -78,6 +78,9 @@ vec4 effect(vec4 col, Image tex, vec2 tc, vec2 sc) {
 }
 ]]
 
+-- NOTE(dd) this is kinda stupid but seems`like the best way do depth 
+-- for this game, since i'm not using sprites its easiest to just set
+-- a z for everything while I draw an obj. 
 local depth_shader_code = [[
 extern number z;
 vec4 position(mat4 transform_projection, vec4 vertex_position) {
@@ -144,7 +147,7 @@ function love.draw()
   local source = kw_buf[1]
   love.graphics.setCanvas(source)
 
-  -- NOTE(lf): only partially clearing kawase buffer to get temporal blur
+  -- NOTE(dd): only partially clearing kawase buffer to get temporal blur
   love.graphics.setColor(0, 0, 0, 1)
   love.graphics.rectangle("fill", 0, 0, kw_w, kw_h)
   love.graphics.setColor(1, 1, 1, 1)

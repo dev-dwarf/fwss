@@ -208,7 +208,7 @@ function game.draw()
   game.draw_flower(180, view_h/2)
 
   for j = view_h - 100, view_h, 25 do 
-  for i = 0, view_w, 10 do
+  for i = 0, view_w, 20 do
     game.draw_flower(i, j+50)
   end
   end
