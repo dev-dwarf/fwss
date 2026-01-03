@@ -14,7 +14,7 @@ function math.approach(a, b, s)
 end
 
 function math.lerp(a, b, x)
-  return x*a + (1-x)*b
+  return x*b + (1-x)*a
 end
 
 local game = { 
@@ -27,13 +27,13 @@ local player = {
 
   foot_tick = 0,
   lfoot = {
-    x = 0,
-    y = 0,
+    x = view_w/2,
+    y = view_h/2,
   },
 
   rfoot = {
-    x = 0,
-    y = 0,
+    x = view_w/2,
+    y = view_h/2,
   },
 
   xspd = 0,
@@ -49,10 +49,10 @@ function game.update(dt)
 
   local ix = 0
   local iy = 0
-  if love.keyboard.isDown("left") then ix = ix - 1 end
-  if love.keyboard.isDown("right") then ix = ix + 1 end
-  if love.keyboard.isDown("up") then iy = iy - 1 end
-  if love.keyboard.isDown("down") then iy = iy + 1 end
+  if love.keyboard.isDown("a", "left") then ix = ix - 1 end
+  if love.keyboard.isDown("d", "right") then ix = ix + 1 end
+  if love.keyboard.isDown("w", "up") then iy = iy - 1 end
+  if love.keyboard.isDown("s", "down") then iy = iy + 1 end
 
   local spd = 1.0
   local accel = 0.25
@@ -136,12 +136,72 @@ function game.draw_player()
 --   love.graphics.circle("fill", player.lfoot.x, player.lfoot.y, 2)
 
   love.graphics.setColor(1, 1, 1, 1)
+end
+
+function game.draw_flower(x, y, t)
+  local rng = love.math.newRandomGenerator(x * 0x505 + 0xDDD, y * 0xDDD + 0x505)
+
+  local h = rng:random(35, 45)
+  local x1, y1 = x + rng:random(-3, 3), y - h * rng:random(20, 30)/100.
+  local x2, y2 = x + rng:random(-4, 4), y - h * rng:random(55, 65)/100.
+  local x3, y3 = x + rng:random(-4, 4), y - h
+
+  local ry = rng:random(7, 9)
+  local rx = ry * rng:random(85, 95)/100.
+
+  love.graphics.setLineStyle( "rough" )
+  love.graphics.setColor(green)
+  love.graphics.line(
+    x, y,
+    x1, y1,
+    x2, y2,
+    x3, y3
+  )
+  love.graphics.line(    
+    x+1, y,
+    math.lerp(x1-1, x2, rng:random(10, 20)/100.), y1,
+    math.lerp(x2+1, x3, rng:random(10, 25)/100.), y2,
+    x3-1, y3
+  )
+
+  love.graphics.setColor(yellow)
+  local deg2rad = math.pi/180
+  local N = math.floor(ry) + rng:random(2)
+  local dir = rng:random(-15, 15)*deg2rad
+  local step = 2*math.pi/N
+  for i = 0, N, 1 do
+    local l = ry + rng:random(50, 60)/10.
+    local la = rng:random(50, 70)*deg2rad/2
+    love.graphics.polygon("fill", 
+      x3 + l*math.cos(dir), y3 + l*math.sin(dir),
+      x3 + 0.4*l*math.cos(dir-la), y3 + 0.5*l*math.sin(dir-la), 
+      x3 + 0.4*l*math.cos(dir+la), y3 + 0.5*l*math.sin(dir+la)
+    )
+    dir = dir + step
+  end
+
+  love.graphics.setColor(brown)
+  love.graphics.ellipse("fill", x3, y3, rx, ry)
+
+  love.graphics.setColor(black)
+  love.graphics.ellipse("fill", x3, y3, 0.65*rx, 0.65*ry)
+  love.graphics.ellipse("fill", x3+1, y3, 0.65*rx, 0.65*ry)
+  love.graphics.ellipse("fill", x3-1, y3, 0.65*rx, 0.65*ry)
+  love.graphics.ellipse("fill", x3, y3+1, 0.65*rx, 0.65*ry)
+  love.graphics.ellipse("fill", x3, y3-1, 0.65*rx, 0.65*ry)
 
 
+  love.graphics.setColor(1, 1, 1, 1)
 end
 
 function game.draw()
   game.draw_player()
+
+  game.draw_flower(100, view_h/2)
+  game.draw_flower(60, view_h/2)
+  game.draw_flower(140, view_h/2)
+  game.draw_flower(180, view_h/2)
+
 end
 
 return game
