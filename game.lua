@@ -153,11 +153,6 @@ function game.draw_player()
   love.graphics.rectangle("fill", x - 1.5 + 6 - 0*player.xl, y - height/2, 3, 2)
   love.graphics.rectangle("fill", x - 1.5 - 6 - 0*player.xl, y - height/2, 3, 2)
 
---   love.graphics.setColor(red)
---   love.graphics.circle("fill", player.rfoot.x, player.rfoot.y, 2)
---   love.graphics.setColor(blue)
---   love.graphics.circle("fill", player.lfoot.x, player.lfoot.y, 2)
-
   love.graphics.setColor(1, 1, 1, 1)
 end
 
@@ -248,7 +243,7 @@ function game.draw_bigleaf(X, Y)
   local rng = make_rng(X, Y)
   local deg2rad = math.pi/180
 
-  local base_angle = -deg2rad*( rng:random(-10, 10) )
+  local base_angle = -deg2rad*( rng:random(-30, 30) )
   local bx = math.cos(base_angle)
   local by = math.sin(base_angle) 
 
@@ -284,6 +279,9 @@ function game.draw_bigleaf(X, Y)
      then
       c2 = c1
       c1 = blue
+
+      y = y + 2
+      y1 = y1 + 1
     end
 
     if c2 == black then
@@ -304,9 +302,6 @@ function game.draw_bigleaf(X, Y)
     local w = 18*(h-j)/h
 
     local o = rng:random(-5, 5)
-    -- draw_leaf(-w, j, -w*3)
-    -- draw_leaf( w, j,  w*3)
-
     for i = -w, w, 18 do
       draw_leaf(i+o, j, 2*i+3*o)
     end
@@ -327,8 +322,6 @@ function game.draw()
   for j = view_h - 200, view_h, 100 do 
   for i = 0, view_w, 100 do
     game.draw_bigleaf(i, j)
-
-
   end
   end
 
