@@ -140,7 +140,9 @@ function love.draw()
   love.graphics.rectangle("fill", 0, 0, kw_w, kw_h)
   love.graphics.setColor(1, 1, 1, 1)
 
-  love.graphics.draw(canvas, 0, 0, 0, 1, 1) -- todo adjust to pad game view 
+  love.graphics.setBlendMode("add")
+  love.graphics.draw(canvas, 0, 0, 0, 1, 1)
+  love.graphics.setBlendMode("alpha")
 
   for i = 2, levels do
     local target = kw_buf[i]

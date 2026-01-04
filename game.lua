@@ -1,5 +1,3 @@
-
-
 white  = color(0xFFFFF7FF)
 black  = color(0x0A030DFF)
 indigo = color(0x230C45FF)
@@ -45,11 +43,20 @@ local player = {
   lfoot = {
     x = view_w/2,
     y = view_h/2,
+    c = grey,
   },
 
   rfoot = {
     x = view_w/2,
     y = view_h/2,
+    c = grey,
+  },
+
+
+  fpn = 6,
+  fpi = 0,
+  fp = {
+
   },
 
   xspd = 0,
@@ -59,6 +66,7 @@ local player = {
   yl = 1,
 }
 
+clap = 0
 mouse_x, mouse_y = 0, 0
 function game.update(dt)
   love.graphics.push()
@@ -101,10 +109,26 @@ function game.update(dt)
     if player.foot_tick % 12 == 0 then
       player.rfoot.x = player.x + player.xspd * 4 + 2
       player.rfoot.y = player.y + player.yspd * ystep
+      player.fp[player.fpi] = {
+        x = player.rfoot.x,
+        y = player.rfoot.y,
+        c = player.rfoot.c,
+        tick = game.tick
+      };
+      player.fpi = (player.fpi + 1) % player.fpn
+      player.rfoot.c = grey
     end
     if player.foot_tick % 12 == 6 then
       player.lfoot.x = player.x + player.xspd * 4 - 2
       player.lfoot.y = player.y + player.yspd * ystep
+      player.fp[player.fpi] = {
+        x = player.lfoot.x,
+        y = player.lfoot.y,
+        c = player.lfoot.c,
+        tick = game.tick
+      };
+      player.fpi = (player.fpi + 1) % player.fpn
+      player.lfoot.c = grey
     end
     player.foot_tick = player.foot_tick + 1
   else 
@@ -116,16 +140,29 @@ function game.update(dt)
       player.lfoot.y = math.lerp(player.lfoot.y, player.y, s)
     end
   end 
-
-
 end
 
 function game.draw_player()
+
+  -- footprints
+  for i = 0, player.fpn do
+    local fp = player.fp[i]
+    if fp then
+      love.graphics.setColor(fp.c)
+      depth_shader:send("z", fp.y-10)
+      local t = math.clamp((game.tick - fp.tick)/60, 0, 2)
+      local it2 = (1-0.5*t)
+      love.graphics.rectangle("fill", fp.x-1, fp.y-2 - 10*t, 3*it2, 2*it2)          
+    end
+  end
+
+
   local width = 9
   local height = 18
 
   local x = math.floor(player.x+0.5)
   local y = math.floor(player.y+0.5)
+
 
   depth_shader:send("z", y)
 
@@ -205,7 +242,12 @@ function game.draw_flower(x, y)
     x3-1, y3
   )
 
-  love.graphics.setColor(yellow)
+  local c1, c2, c3, c4 = yellow, brown, black, black
+  if love.keyboard.isDown("space") then
+    c1, c2, c3, c4 = red, red, black, yellow
+  end
+
+  love.graphics.setColor(c1)
   local deg2rad = math.pi/180
   local N = math.floor(ry) + rng:random(2)
   local dir = rng:random(-15, 15)*deg2rad + rwave(rng, 0.00505)
@@ -224,16 +266,21 @@ function game.draw_flower(x, y)
   local x4 = math.approach(x3 + 0.5*rwave(rng, 0.02), player.x, 2.*t)
   local y4 = math.approach(y3 + 0.5*rwave(rng, 0.025), player.y, 2.*t)
 
-  love.graphics.setColor(brown)
+  local x5 = math.approach(x4, player.x, 5*t)
+  local y5 = math.approach(y4, player.y- 15, 5*t)
+
+  love.graphics.setColor(c2)
   love.graphics.ellipse("fill", x3, y3, rx, ry)
 
-  love.graphics.setColor(black)
+  love.graphics.setColor(c3)
   love.graphics.ellipse("fill", x4, y4, 0.65*rx, 0.65*ry)
   love.graphics.ellipse("fill", x4+1, y4, 0.65*rx, 0.65*ry)
   love.graphics.ellipse("fill", x4-1, y4, 0.65*rx, 0.65*ry)
   love.graphics.ellipse("fill", x4, y4+1, 0.65*rx, 0.65*ry)
   love.graphics.ellipse("fill", x4, y4-1, 0.65*rx, 0.65*ry)
 
+  love.graphics.setColor(c4)
+  love.graphics.line(x5, y5-2, x5, y5+2)
 
   love.graphics.setColor(1, 1, 1, 1)
 end
@@ -274,9 +321,13 @@ function game.draw_bigleaf(X, Y)
     local x1 = x - 0.8*r1*ax + o2*ay
     local y1 = y - 0.8*r2*ay - o2*ax
 
+
     if (math.dist(x1, y1, player.rfoot.x, player.rfoot.y) < r1)
     or (math.dist(x1, y1, player.lfoot.x, player.lfoot.y) < r1)
      then
+      player.rfoot.c = blue
+      player.lfoot.c = blue
+
       c2 = c1
       c1 = blue
 
@@ -311,10 +362,8 @@ function game.draw_bigleaf(X, Y)
 end
 
 function game.draw()
-
   game.draw_flower(100, view_h/2)
   game.draw_flower(60, view_h/2)
-
 
   game.draw_flower(140, view_h/2)
   game.draw_flower(180, view_h/2)
@@ -327,9 +376,7 @@ function game.draw()
 
   game.draw_bigleaf(mouse_x, mouse_y)
 
-
   game.draw_player()
-
 end
 
 return game
