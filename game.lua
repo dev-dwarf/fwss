@@ -256,10 +256,18 @@ function game.draw_bigleaf(X, Y)
     local x = X + i*bx - j*by
     local y = Y + i*by + j*bx
 
-    depth_shader:send("z", y-16)
+    local c1
+    if (x + y) % 16 < 4 then 
+      c1 = indigo 
+      depth_shader:send("z", y)
+    else 
+      c1 = navy
+      depth_shader:send("z", y-16)
+    end
+    local c2 = black
 
     local angle = base_angle - deg2rad*(90+a+rng:random(-10, 10))
-    local arc = deg2rad*rng:random(15, 25)
+    local arc = deg2rad*rng:random(10, 15)
 
     local ax = math.cos(angle)
     local ay = math.sin(angle)
@@ -268,24 +276,39 @@ function game.draw_bigleaf(X, Y)
     local r2 = r1 * rng:random(75, 85)/100
 
     local o2 = rng:random(-20, 20)/10.
+    local x1 = x - 0.8*r1*ax + o2*ay
+    local y1 = y - 0.8*r2*ay - o2*ax
 
-    love.graphics.setColor(black)
-    love.graphics.circle("fill", x, y, 0.9*r1, 10)
+    if (math.dist(x1, y1, player.rfoot.x, player.rfoot.y) < r1)
+    or (math.dist(x1, y1, player.lfoot.x, player.lfoot.y) < r1)
+     then
+      c2 = c1
+      c1 = blue
+    end
 
-    local color = navy
-    if (x + y) % 16 < 4 then color = indigo end
-    love.graphics.setColor(color)
+    if c2 == black then
+      love.graphics.setColor(black)
+      love.graphics.circle("fill", x, y+1, r1, 10)
+      -- love.graphics.circle("fill", x1, y1+1, r1, 10)
+    end
+
+    love.graphics.setColor(c1)
     love.graphics.arc("fill", x, y, r1, angle+arc, angle+2*(math.pi - arc), 10)
-    love.graphics.circle("fill", x - 0.8*r1*ax + o2*ay, y - 0.8*r2*ay - o2*ax, r2, 10)
+    love.graphics.circle("fill", x1, y1, r2, 10)
   end
 
-  local s = rng:random(18, 26)
-  local h = rng:random(40, 60)
+  local s = rng:random(18, 25)
+  local h = rng:random(40, 50)
 
   for j = 0, h, 0.8*s do
-    local w = 25*(h-j)/h
-    for i = -w, w, s do
-      draw_leaf(i, j, i)
+    local w = 18*(h-j)/h
+
+    local o = rng:random(-5, 5)
+    -- draw_leaf(-w, j, -w*3)
+    -- draw_leaf( w, j,  w*3)
+
+    for i = -w, w, 18 do
+      draw_leaf(i+o, j, 2*i+3*o)
     end
   end
 
@@ -305,8 +328,6 @@ function game.draw()
   for i = 0, view_w, 100 do
     game.draw_bigleaf(i, j)
 
-    -- game.draw_flower(i, j+50)
-    
 
   end
   end
