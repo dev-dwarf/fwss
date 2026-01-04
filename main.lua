@@ -14,26 +14,13 @@ function color(hex)
   }
 end
 
-white  = color(0xFFFFF7FF)
-black  = color(0x0A030DFF)
-indigo = color(0x230C45FF)
-navy   = color(0x192669FF)
-green  = color(0x004D57FF)
-pink   = color(0xFF6DEBFF)
-red    = color(0xFF0059FF)
-purple = color(0x7D2160FF)
-brown  = color(0x96531DFF)
-grey   = color(0x797366FF)
-yellow = color(0xFFCF00FF)
-blue   = color(0x2CE8F4FF)
-
 view_w = 224
 view_h = 224
+window_scale = 4
 local kw_w = 256
 local kw_h = 256
 local kw_x = 0.5*(kw_w - view_w)
 local kw_y = 0.5*(kw_h - view_h)
-local window_scale = 4
 local canvas, depth
 
 depth_shader = 0
@@ -138,6 +125,7 @@ function love.draw()
   love.graphics.clear(0, 0, 0, 0, true, 1.0)
   love.graphics.setDepthMode("lequal", true)
   love.graphics.setShader(depth_shader)
+
   	game.draw()
   love.graphics.setShader()
   love.graphics.setDepthMode()
@@ -184,6 +172,7 @@ function love.draw()
   love.graphics.push()
   love.graphics.scale(window_scale, window_scale)
   love.graphics.translate(-kw_x, -kw_y)
+
 
   love.graphics.clear(black)
 

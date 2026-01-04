@@ -1,9 +1,25 @@
 
+
+white  = color(0xFFFFF7FF)
+black  = color(0x0A030DFF)
+indigo = color(0x230C45FF)
+navy   = color(0x192669FF)
+green  = color(0x004D57FF)
+pink   = color(0xFF6DEBFF)
+red    = color(0xFF0059FF)
+purple = color(0x7D2160FF)
+brown  = color(0x96531DFF)
+grey   = color(0x797366FF)
+yellow = color(0xFFCF00FF)
+blue   = color(0x2CE8F4FF)
+
 function math.clamp(v, min, max)
   if v < min then return min end
   if v > max then return max end
   return v
 end
+
+function math.dist(x1,y1, x2,y2) return ((x2-x1)^2+(y2-y1)^2)^0.5 end
 
 function math.approach(a, b, s)
   if a < b then 
@@ -43,8 +59,13 @@ local player = {
   yl = 1,
 }
 
-
+mouse_x, mouse_y = 0, 0
 function game.update(dt)
+  love.graphics.push()
+  love.graphics.scale(window_scale, window_scale)
+  mouse_x, mouse_y = love.graphics.inverseTransformPoint(love.mouse.getPosition())
+  love.graphics.pop()
+
   game.tick = game.tick + 1
 
   local ix = 0
@@ -140,15 +161,36 @@ function game.draw_player()
   love.graphics.setColor(1, 1, 1, 1)
 end
 
-function game.draw_flower(x, y, t)
+function make_rng(x, y)
+  return love.math.newRandomGenerator(x * 0x505 + 0xDDD, y * 0xDDD + 0x505)
+end
+
+function rwave(rng, f)
+  return math.sin(game.tick*f + math.pi*rng:random(100)/100)
+end
+
+function game.draw_flower(x, y)
   depth_shader:send("z", y)
 
-  local rng = love.math.newRandomGenerator(x * 0x505 + 0xDDD, y * 0xDDD + 0x505)
+  local rng = make_rng(x, y)
 
-  local h = rng:random(35, 45)
+  local h = rng:random(35, 45) + 2*rwave(rng, rng:random(10, 20)/1000)
   local x1, y1 = x + rng:random(-3, 3), y - h * rng:random(20, 30)/100.
-  local x2, y2 = x + rng:random(-4, 4), y - h * rng:random(55, 65)/100.
-  local x3, y3 = x + rng:random(-4, 4), y - h
+  local x2, y2 = x + rng:random(-3, 3) + 2*rwave(rng, 0.01), y - h * rng:random(55, 65)/100.
+  local x3, y3 = x + rng:random(-4, 4) + 4*rwave(rng, 0.02), y - h
+
+  local d = math.dist(x, y, player.x, player.y)
+  local dmin = 5
+  local dmax = 80
+
+  local t = math.clamp(1.0 - ((d - dmin)/(dmax - dmin)), 0., 1.)
+  t = t*t
+
+  x2 = math.lerp(x2, player.x, -0.2*t)
+  y2 = math.lerp(y2, player.y, -0.2*t)
+
+  x3 = math.lerp(x3, player.x, 0.3*t)
+  y3 = math.lerp(y3, player.y, 0.3*t)
 
   local ry = rng:random(7, 9)
   local rx = ry * rng:random(85, 95)/100.
@@ -171,7 +213,7 @@ function game.draw_flower(x, y, t)
   love.graphics.setColor(yellow)
   local deg2rad = math.pi/180
   local N = math.floor(ry) + rng:random(2)
-  local dir = rng:random(-15, 15)*deg2rad
+  local dir = rng:random(-15, 15)*deg2rad + rwave(rng, 0.00505)
   local step = 2*math.pi/N
   for i = 0, N, 1 do
     local l = ry + rng:random(50, 60)/10.
@@ -184,16 +226,68 @@ function game.draw_flower(x, y, t)
     dir = dir + step
   end
 
+  local x4 = math.approach(x3 + 0.5*rwave(rng, 0.02), player.x, 2.*t)
+  local y4 = math.approach(y3 + 0.5*rwave(rng, 0.025), player.y, 2.*t)
+
   love.graphics.setColor(brown)
   love.graphics.ellipse("fill", x3, y3, rx, ry)
 
   love.graphics.setColor(black)
-  love.graphics.ellipse("fill", x3, y3, 0.65*rx, 0.65*ry)
-  love.graphics.ellipse("fill", x3+1, y3, 0.65*rx, 0.65*ry)
-  love.graphics.ellipse("fill", x3-1, y3, 0.65*rx, 0.65*ry)
-  love.graphics.ellipse("fill", x3, y3+1, 0.65*rx, 0.65*ry)
-  love.graphics.ellipse("fill", x3, y3-1, 0.65*rx, 0.65*ry)
+  love.graphics.ellipse("fill", x4, y4, 0.65*rx, 0.65*ry)
+  love.graphics.ellipse("fill", x4+1, y4, 0.65*rx, 0.65*ry)
+  love.graphics.ellipse("fill", x4-1, y4, 0.65*rx, 0.65*ry)
+  love.graphics.ellipse("fill", x4, y4+1, 0.65*rx, 0.65*ry)
+  love.graphics.ellipse("fill", x4, y4-1, 0.65*rx, 0.65*ry)
 
+
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
+
+function game.draw_bigleaf(X, Y)
+  local rng = make_rng(X, Y)
+  local deg2rad = math.pi/180
+
+  local base_angle = -deg2rad*( rng:random(-10, 10) )
+  local bx = math.cos(base_angle)
+  local by = math.sin(base_angle) 
+
+  function draw_leaf(i, j, a)
+    local x = X + i*bx - j*by
+    local y = Y + i*by + j*bx
+
+    depth_shader:send("z", y-16)
+
+    local angle = base_angle - deg2rad*(90+a+rng:random(-10, 10))
+    local arc = deg2rad*rng:random(15, 25)
+
+    local ax = math.cos(angle)
+    local ay = math.sin(angle)
+
+    local r1 = rng:random(8, 10) + (- math.abs(a))/30
+    local r2 = r1 * rng:random(75, 85)/100
+
+    local o2 = rng:random(-20, 20)/10.
+
+    love.graphics.setColor(black)
+    love.graphics.circle("fill", x, y, 0.9*r1, 10)
+
+    local color = navy
+    if (x + y) % 16 < 4 then color = indigo end
+    love.graphics.setColor(color)
+    love.graphics.arc("fill", x, y, r1, angle+arc, angle+2*(math.pi - arc), 10)
+    love.graphics.circle("fill", x - 0.8*r1*ax + o2*ay, y - 0.8*r2*ay - o2*ax, r2, 10)
+  end
+
+  local s = rng:random(18, 26)
+  local h = rng:random(40, 60)
+
+  for j = 0, h, 0.8*s do
+    local w = 25*(h-j)/h
+    for i = -w, w, s do
+      draw_leaf(i, j, i)
+    end
+  end
 
   love.graphics.setColor(1, 1, 1, 1)
 end
@@ -207,11 +301,18 @@ function game.draw()
   game.draw_flower(140, view_h/2)
   game.draw_flower(180, view_h/2)
 
-  for j = view_h - 100, view_h, 25 do 
-  for i = 0, view_w, 20 do
-    game.draw_flower(i, j+50)
+  for j = view_h - 200, view_h, 100 do 
+  for i = 0, view_w, 100 do
+    game.draw_bigleaf(i, j)
+
+    -- game.draw_flower(i, j+50)
+    
+
   end
   end
+
+  game.draw_bigleaf(mouse_x, mouse_y)
+
 
   game.draw_player()
 
