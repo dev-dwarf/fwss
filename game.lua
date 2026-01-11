@@ -11,31 +11,19 @@ grey   = color(0x797366FF)
 yellow = color(0xFFCF00FF)
 blue   = color(0x2CE8F4FF)
 
-function math.clamp(v, min, max)
-  if v < min then return min end
-  if v > max then return max end
-  return v
-end
+local wisp_len = 10
 
-function math.dist(x1,y1, x2,y2) return ((x2-x1)^2+(y2-y1)^2)^0.5 end
+local lume = require "lume"
 
-function math.approach(a, b, s)
-  if a < b then 
-    return math.min(a+s, b)
-  else
-    return math.max(a-s, b)
-  end
-end
+game = game or { 
+  tick = 0,
 
-function math.lerp(a, b, x)
-  return x*b + (1-x)*a
-end
-
-local game = { 
-  tick = 0
+  wisps = 0,
+  wisp = {},
 }
 
-local player = {
+
+player = player or {
   x = view_w/2,
   y = view_h/2,
 
@@ -66,8 +54,38 @@ local player = {
   yl = 1,
 }
 
+function math.clamp(v, min, max)
+  if v < min then return min end
+  if v > max then return max end
+  return v
+end
+
+function math.dist(x1,y1, x2,y2) return ((x2-x1)^2+(y2-y1)^2)^0.5 end
+
+function math.approach(a, b, s)
+  if a < b then 
+    return math.min(a+s, b)
+  else
+    return math.max(a-s, b)
+  end
+end
+
+function math.lerp(a, b, x)
+  return x*b + (1-x)*a
+end
+
+function make_rng(x, y)
+  return love.math.newRandomGenerator(x * 0x505 + 0xDDD, y * 0xDDD + 0x505)
+end
+
+function rwave(rng, f)
+  return math.sin(game.tick*f + math.pi*rng:random(100)/100)
+end
+
 clap = 0
 mouse_x, mouse_y = 0, 0
+last_mdown = false
+R = make_rng(87111, 87035)
 function game.update(dt)
   love.graphics.push()
   love.graphics.scale(window_scale, window_scale)
@@ -83,6 +101,24 @@ function game.update(dt)
   if love.keyboard.isDown("w", "up") then iy = iy - 1 end
   if love.keyboard.isDown("s", "down") then iy = iy + 1 end
 
+
+  if love.mouse.isDown(1) and not mdown then
+    game.wisps = game.wisps + 1
+    game.wisp[game.wisps] = {
+      x = mouse_x,
+      y = mouse_y,
+      tick = game.tick,
+      p = 0, px = {}, py = {},
+      aX = R:random(150, 300)/100,
+      aY = R:random(150, 300)/100,
+      c = lume.randomchoice({yellow, pink, blue}),
+      len = R:random(16, 40)
+    }
+  end
+  mdown = love.mouse.isDown(1)
+
+
+
   local spd = 1.0
   local accel = 0.25
   if (not (ix == 0)) and (not (iy == 0)) then
@@ -94,6 +130,10 @@ function game.update(dt)
 
   player.x = player.x + player.xspd
   player.y = player.y + player.yspd
+
+  local border = 10
+  player.x = math.clamp(player.x, -border, view_w+border)
+  player.y = math.clamp(player.y, 0, view_h+border*2)
 
   -- visuals
   if not (ix == 0) then
@@ -140,6 +180,24 @@ function game.update(dt)
       player.lfoot.y = math.lerp(player.lfoot.y, player.y, s)
     end
   end 
+
+
+  for i = 1, game.wisps, 1 do
+    local wisp = game.wisp[i]
+
+    wisp.p = (wisp.p + 1) % wisp.len
+    wisp.px[wisp.p] = wisp.x
+    wisp.py[wisp.p] = wisp.y
+
+    wisp.x = math.lerp(wisp.x, player.x, 0.05)
+    wisp.y = math.lerp(wisp.y, player.y, 0.05)
+
+    local ax = wisp.aX*(1 - math.clamp(math.abs(wisp.x - wisp.px[wisp.p])/10, 0, 1))
+    local ay = wisp.aY*(1 - math.clamp(math.abs(wisp.y - wisp.py[wisp.p])/10, 0, 1))
+
+    wisp.x = wisp.x + ax*math.cos(0.01*wisp.aY*(game.tick+wisp.tick))
+    wisp.y = wisp.y + ay*math.sin(0.01*wisp.aX*(game.tick+wisp.tick))
+  end
 end
 
 function game.draw_player()
@@ -191,14 +249,6 @@ function game.draw_player()
   love.graphics.setColor(1, 1, 1, 1)
 end
 
-function make_rng(x, y)
-  return love.math.newRandomGenerator(x * 0x505 + 0xDDD, y * 0xDDD + 0x505)
-end
-
-function rwave(rng, f)
-  return math.sin(game.tick*f + math.pi*rng:random(100)/100)
-end
-
 function game.draw_flower(x, y)
   depth_shader:send("z", y)
 
@@ -225,7 +275,6 @@ function game.draw_flower(x, y)
   local ry = rng:random(7, 9)
   local rx = ry * rng:random(85, 95)/100.
 
-  love.graphics.setLineStyle( "rough" )
   love.graphics.setColor(green)
   love.graphics.line(
     x, y,
@@ -359,7 +408,33 @@ function game.draw_bigleaf(X, Y)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
+function game.draw_wisp(wisp)
+  for i = 0, wisp_len-2, 1 do
+   love.graphics.setColor(wisp.c)
+    local I = (wisp.p + wisp.len - i) % wisp.len
+    local J = (wisp.p + wisp.len - i-1) % wisp.len
+    -- local s = (1 - (i/30))
+    -- s = s*s
+    -- love.graphics.circle("fill", wisp.px[I], wisp.py[I], 3*s, 10)
+    if wisp.px[I] and wisp.px[J] then
+      love.graphics.line(wisp.px[I], wisp.py[I], wisp.px[J], wisp.py[J])
+    end
+  end
+  
+  love.graphics.circle("fill", wisp.px[wisp.p], wisp.py[wisp.p], 3, 5)
+  
+
+
+  love.graphics.setColor(white)
+
+  love.graphics.circle("fill", wisp.x, wisp.y, 2, 6)
+
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
 function game.draw()
+  love.graphics.setLineStyle( "rough" )
+
   -- game.draw_flower(100, view_h/2)
   -- game.draw_flower(60, view_h/2)
 
@@ -375,6 +450,10 @@ function game.draw()
   -- game.draw_bigleaf(mouse_x, mouse_y)
 
   game.draw_player()
+
+  for i = 1, game.wisps, 1 do
+    game.draw_wisp(game.wisp[i])
+  end
 end
 
 return game
