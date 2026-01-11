@@ -134,16 +134,15 @@ function game.update(dt)
   else 
     if ix == 0 and iy == 0 then
       local s = 0.5
-      player.rfoot.x = math.lerp(player.rfoot.x, player.x + 0.5*player.xl + 2, s)
+      player.rfoot.x = math.lerp(player.rfoot.x, player.x +0.5*player.xl+1.5, s)
       player.rfoot.y = math.lerp(player.rfoot.y, player.y, s)
-      player.lfoot.x = math.lerp(player.lfoot.x, player.x + 0.5*player.xl - 2, s)
+      player.lfoot.x = math.lerp(player.lfoot.x, player.x+0.5*player.xl-2.5 , s)
       player.lfoot.y = math.lerp(player.lfoot.y, player.y, s)
     end
   end 
 end
 
 function game.draw_player()
-
   -- footprints
   for i = 0, player.fpn do
     local fp = player.fp[i]
@@ -163,14 +162,13 @@ function game.draw_player()
   local x = math.floor(player.x+0.5)
   local y = math.floor(player.y+0.5)
 
-
   depth_shader:send("z", y)
 
   -- legs
   love.graphics.setColor(white)
   local legy = y - 8
-  local lx = x+0.5*player.xl-2
-  local rx = x+0.5*player.xl+2
+  local rx = x+0.5*player.xl+1.5
+  local lx = x+0.5*player.xl-2.5
   love.graphics.polygon("fill", {rx - 1, legy, rx + 1, legy, player.rfoot.x + 1, player.rfoot.y, player.rfoot.x - 1, player.rfoot.y})
   love.graphics.polygon("fill", {lx - 1, legy, lx + 1, legy, player.lfoot.x + 1, player.lfoot.y, player.lfoot.x - 1, player.lfoot.y})
 
@@ -362,19 +360,19 @@ function game.draw_bigleaf(X, Y)
 end
 
 function game.draw()
-  game.draw_flower(100, view_h/2)
-  game.draw_flower(60, view_h/2)
+  -- game.draw_flower(100, view_h/2)
+  -- game.draw_flower(60, view_h/2)
 
-  game.draw_flower(140, view_h/2)
-  game.draw_flower(180, view_h/2)
+  -- game.draw_flower(140, view_h/2)
+  -- game.draw_flower(180, view_h/2)
 
-  for j = view_h - 200, view_h, 100 do 
-  for i = 0, view_w, 100 do
-    game.draw_bigleaf(i, j)
-  end
-  end
+  -- for j = view_h - 200, view_h, 100 do 
+  -- for i = 0, view_w, 100 do
+  --   game.draw_bigleaf(i, j)
+  -- end
+  -- end
 
-  game.draw_bigleaf(mouse_x, mouse_y)
+  -- game.draw_bigleaf(mouse_x, mouse_y)
 
   game.draw_player()
 end
