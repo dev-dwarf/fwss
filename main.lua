@@ -83,6 +83,8 @@ local levels = 4  -- adjust for blur strength (3-6 typical)
 local offset = 1.0
 local bloom = 1.0
 
+local game = require "game"
+
 function love.load()
   love.window.setMode( view_w*window_scale, view_h*window_scale, {})
   love.graphics.setBackgroundColor(black)
@@ -101,10 +103,10 @@ function love.load()
     cur_w = math.max(1, math.floor(cur_w / 2))
     cur_h = math.max(1, math.floor(cur_h / 2))
   end
+
+  game.load()
 end
 
-
-local game = require "game"
 
 function love.update(dt)
   lurker.update() 
