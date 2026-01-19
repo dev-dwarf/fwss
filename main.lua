@@ -1,5 +1,9 @@
 
-local lurker = require "lurker"
+if love.system.getOS() == "Linux" then
+  lurker = require "lurker"
+end
+
+require "conf"
 
 function color(hex)
   return {
@@ -10,9 +14,7 @@ function color(hex)
   }
 end
 
-view_w = 224
-view_h = 224
-window_scale = 4
+
 local kw_w = 256
 local kw_h = 256
 local kw_x = 0.5*(kw_w - view_w)
@@ -86,11 +88,10 @@ local bloom = 1.0
 local game = require "game"
 
 function love.load()
-  love.window.setMode( view_w*window_scale, view_h*window_scale, {})
   love.graphics.setBackgroundColor(black)
   love.graphics.setDefaultFilter("nearest", "nearest")
   canvas = love.graphics.newCanvas(kw_w, kw_h)
-  depth = love.graphics.newCanvas(kw_w, kw_h, {format = "depth32f"})
+  depth = love.graphics.newCanvas(kw_w, kw_h, {format = "depth16"})
 
   down_shader = love.graphics.newShader(down_shader_code)
   up_shader = love.graphics.newShader(up_shader_code)
@@ -109,7 +110,9 @@ end
 
 
 function love.update(dt)
-  lurker.update() 
+  if lurker then 
+    lurker.update() 
+  end
 
   game.update(dt)
 end

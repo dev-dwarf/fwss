@@ -23,8 +23,6 @@ end
 
 local wisp_len = 10
 
-local lume = require "lume"
-
 game = game or { 
   tick = 0,
 
@@ -74,7 +72,7 @@ player = player or {
     c = white,
   },
 
-  fpn = 6,
+  fpn = 60,
   fpi = 0,
   fp = {
 
@@ -120,6 +118,8 @@ clap_down = true
 mouse_x, mouse_y = 0, 0
 last_mdown = false
 R = make_rng(87111, 87035)
+
+shift = 0
 
 sunflowers = {
 
@@ -169,6 +169,12 @@ function game.update(dt)
   end
   mdown = love.mouse.isDown(1)
 
+  if love.keyboard.isDown("lshift") then
+    shift = shift + 1
+  else 
+    shift = shift - 1
+  end
+  shift = math.clamp(shift, 0, 60)
 
   if clap > 0 then
     clap = clap - 1
@@ -216,7 +222,7 @@ function game.update(dt)
         tick = game.tick
       };
       player.fpi = (player.fpi + 1) % player.fpn
-      player.rfoot.c = grey
+      player.rfoot.c = mix(indigo, player.rfoot.c, 0.1)
     end
     if player.foot_tick % 12 == 6 then
       player.lfoot.x = player.x + player.xspd * 4 - 2
@@ -228,7 +234,7 @@ function game.update(dt)
         tick = game.tick
       };
       player.fpi = (player.fpi + 1) % player.fpn
-      player.lfoot.c = grey
+      player.lfoot.c = mix(indigo, player.lfoot.c, 0.1)
     end
     player.foot_tick = player.foot_tick + 1
   else 
@@ -267,7 +273,7 @@ function game.draw_player()
     if fp then
       love.graphics.setColor(fp.c)
       depth_shader:send("z", fp.y-10)
-      local t = math.clamp((game.tick - fp.tick)/60, 0, 2)
+      local t = math.clamp((game.tick - fp.tick)/360, 0, 2)
       local it2 = (1-0.5*t)
       love.graphics.rectangle("fill", fp.x-1, fp.y-2 - 10*t, 3*it2, 2*it2)          
     end
@@ -280,24 +286,28 @@ function game.draw_player()
   local x = math.floor(player.x+0.5)
   local y = math.floor(player.y+0.5)
 
+  local c1 = mix(black, white, 2*shift/60)
+  local c2 = mix(red, black, 2*shift/60)
+  local c3 = mix(red, yellow, 2*shift/60)
+  local c4 = mix(red, brown, 2*shift/60)
+
   depth_shader:send("z", y)
 
   -- legs
-  love.graphics.setColor(white)
+  love.graphics.setColor(c1)
   local legy = y - 8
   local rx = x+0.5*player.xl+1.5
   local lx = x+0.5*player.xl-2.5
   love.graphics.polygon("fill", {rx - 1, legy, rx + 1, legy, player.rfoot.x + 1, player.rfoot.y, player.rfoot.x - 1, player.rfoot.y})
   love.graphics.polygon("fill", {lx - 1, legy, lx + 1, legy, player.lfoot.x + 1, player.lfoot.y, player.lfoot.x - 1, player.lfoot.y})
 
-  love.graphics.setColor(brown)
+  love.graphics.setColor(c4)
   love.graphics.rectangle("fill", x - width/2, y - height + 1, width, 10)
 
-  love.graphics.setColor(black)
+  love.graphics.setColor(c2)
   love.graphics.rectangle("fill", x - 3.5 + 0.5*player.xl, y - height, 6, 4)
 
-
-  love.graphics.setColor(white)
+  love.graphics.setColor(c1)
   love.graphics.rectangle("fill", x - 2.5 + 0.5*player.xl, y - height + 4, 4, 8)
 
   love.graphics.rectangle("fill", x - 2.5 + 0.5*player.xl, y - height - 1, 4, 4)
@@ -306,19 +316,21 @@ function game.draw_player()
   if clap_down then
     player.rhand.y = -height 
     player.rhand.x = -1 + 1.5 + 4*player.xl - 0.5*(1-player.xl)
-    player.rhand.c = yellow
 
     player.lhand.y = -height
     player.lhand.x = -1 - 1.5 + 4*player.xl + 0.5*(1+player.xl)
-    player.lhand.c = yellow
+
+    local handc = c3
+    player.rhand.c = handc
+    player.lhand.c = handc
   else
     player.rhand.x = math.approach(player.rhand.x, -1.5 + 6, 1)
     player.rhand.y = math.approach(player.rhand.y, -height/2, 1)
-    player.rhand.c = white
+    player.rhand.c = c1
 
     player.lhand.x = math.approach(player.lhand.x, -0.5 - 6, 1)
     player.lhand.y = math.approach(player.lhand.y, -height/2, 1)
-    player.lhand.c = white
+    player.lhand.c = c1
   end
 
   love.graphics.setColor(player.rhand.c)
@@ -335,13 +347,15 @@ function game.draw_flower(sunflower)
 
   depth_shader:send("z", y)
 
+  local shy = shift/60
+
   local rng = make_rng(x, y)
 
   local ti = ((game.tick - sunflower.tick) % (sunflower.life+1))/sunflower.life
   ti = math.clamp(ti, 0, 1)
   local gt = math.clamp(5*ti, 0, 1)
-  local dt = 1.0-math.clamp(8*ti - 7, 0, 1)
-  local wt = 1.0-math.clamp(8*ti - 6, 0, 1)
+  local dt = 1.0-math.clamp(9*ti - 8, 0, 1)
+  local wt = 1.0-math.clamp(9*ti - 6, 0, 1)
 
   local tt = gt*dt
 
@@ -349,7 +363,6 @@ function game.draw_flower(sunflower)
   local x1, y1 = x + tt*rng:random(-3, 3), y - h * rng:random(20, 30)/100.
   local x2, y2 = x + tt*rng:random(-3, 3) + 2*rwave(rng, 0.01), y - h * rng:random(55, 65)/100.
   local x3, y3 = x + tt*rng:random(-4, 4) + 4*rwave(rng, 0.02), y - h
-
 
   local d = math.dist(x, y, player.x, player.y)
   local dmin = 5
@@ -368,19 +381,18 @@ function game.draw_flower(sunflower)
   local rx = ry * rng:random(85, 95)/100.
   ry = ry*math.lerp(0.75, 1.0, math.clamp(2.0*wt, 0, 1))
 
-  local c0 = mix(mix(green, grey, wt), indigo, tt)
-  local c1 = mix(yellow, grey, gt*wt)
-  local c2 = mix(mix(brown, grey, wt), indigo, tt)
+  local cw = mix(black, grey, shift/60)
+  local c0 = mix(mix(green, cw, wt), indigo, tt)
+  local c1 = mix(mix(yellow, brown, gt), cw, wt)
+  local c2 = mix(mix(brown, cw, wt), indigo, tt)
   local c3 = mix(black, black, tt)
   local c4 = c3
-  if love.keyboard.isDown("space") then
-    c0 = mix(mix(green, navy, wt), indigo, tt)
-    c1 = mix(mix(red, purple, gt*wt), indigo, tt)
-    c2 = c1 
-    c3 = black
-    c4 = mix(yellow, indigo, math.clamp(4*tt, 0, 1))
-    -- c1, c2, c3, c4 = red, red, black, yellow
-  end
+  c0 = mix(mix(mix(purple, navy, wt), indigo, tt), c0, shy)
+  c1 = mix(mix(mix(red, purple, gt*wt), indigo, tt), c1, shy)
+  c2 = mix(c1, c2, shy) 
+  c3 = mix(black, c3, shy)
+  c4 = mix(mix(yellow, indigo, math.clamp(4*tt, 0, 1)), c4, 2*shy)
+  -- c1, c2, c3, c4 = red, red, black, yellow
 
   love.graphics.setColor(c0)
   love.graphics.line(
@@ -449,15 +461,18 @@ function game.draw_bigleaf(X, Y)
     local x = X + i*bx - j*by
     local y = Y + i*by + j*bx
 
+    local shy = shift/60
+
     local c1
+    local c2 = mix(grey, black, shift/60)
+    local c3 = mix(red, blue, shy)
     if (x + y) % 16 < 4 then 
-      c1 = indigo 
+      c1 = mix(purple, indigo, shy)
       depth_shader:send("z", y-15)
-    else 
-      c1 = navy
+    else  
+      c1 = mix(brown, navy, shy)
       depth_shader:send("z", y-30)
     end
-    local c2 = black
 
     local angle = base_angle - deg2rad*(90+a+rng:random(-10, 10))
     local arc = deg2rad*rng:random(10, 15)
@@ -465,46 +480,43 @@ function game.draw_bigleaf(X, Y)
     local ax = math.cos(angle)
     local ay = math.sin(angle)
 
-    local r1 = rng:random(8, 10) + (- math.abs(a))/30
+    local r1 = rng:random(4, 7) + (- math.abs(a))/30
     local r2 = r1 * rng:random(75, 85)/100
 
     local o2 = rng:random(-20, 20)/10.
     local x1 = x - 0.8*r1*ax + o2*ay
     local y1 = y - 0.8*r2*ay - o2*ax
 
-
     if (math.dist(x1, y1, player.rfoot.x, player.rfoot.y) < r1)
     or (math.dist(x1, y1, player.lfoot.x, player.lfoot.y) < r1)
      then
-      player.rfoot.c = blue
-      player.lfoot.c = blue
+      player.rfoot.c = c3
+      player.lfoot.c = c3
 
       c2 = c1
-      c1 = blue
+      c1 = c3
 
       y = y + 2
       y1 = y1 + 1
     end
 
-    if c2 == black then
-      love.graphics.setColor(black)
-      love.graphics.circle("fill", x, y+1, r1, 10)
-      -- love.graphics.circle("fill", x1, y1+1, r1, 10)
-    end
+    love.graphics.setColor(c2)
+    love.graphics.circle("fill", x, y+1, r1, 10)
+    -- love.graphics.circle("fill", x1, y1+1, r1, 10)
 
     love.graphics.setColor(c1)
     love.graphics.arc("fill", x, y, r1, angle+arc, angle+2*(math.pi - arc), 10)
     love.graphics.circle("fill", x1, y1, r2, 10)
   end
 
-  local s = rng:random(18, 25)
-  local h = rng:random(40, 50)
+  local s = rng:random(10, 15)
+  local h = rng:random(20, 30)
 
   for j = 0, h, 0.8*s do
-    local w = 18*(h-j)/h
+    local w = 12*(h-j)/h
 
     local o = rng:random(-5, 5)
-    for i = -w, w, 18 do
+    for i = -w, w, 12 do
       draw_leaf(i+o, j, 2*i+3*o)
     end
   end
@@ -537,6 +549,8 @@ function game.draw_wisp(wisp)
 end
 
 function game.draw()
+  love.graphics.clear(mix(grey, black, shift/60))
+
   love.graphics.setLineStyle( "rough" )
 
   -- game.draw_flower(100, view_h/2)
@@ -562,6 +576,7 @@ function game.draw()
   for i = 1, #sunflowers do 
     game.draw_flower(sunflowers[i])
   end
+
 end
 
 return game
