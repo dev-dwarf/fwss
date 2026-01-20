@@ -124,6 +124,10 @@ sunflowers = {
 
 }
 
+leafs = {
+
+}
+
 function game.sfx(src, pitch)
   local s = src:clone()
   local p = pitch or 1.0
@@ -131,6 +135,15 @@ function game.sfx(src, pitch)
   s:play()
 end
 
+function game.spawn_leaf(x,y,shift) 
+  leafs[#leafs+1] = {
+    h = R:random(2, 3),
+    x = x,
+    y = y,
+    shift = shift,
+    tick = game.tick,
+  }
+end
 
 function game.spawn_wisp(x,y,c)
   game.wisp[#game.wisp+1] = { 
@@ -143,8 +156,8 @@ function game.spawn_wisp(x,y,c)
     aX = R:random(150, 300)/100,
     aY = R:random(150, 300)/100,
 
-    tx = math.lerp(R:random(0, view_w), player.x, 0.2),
-    ty = math.lerp(R:random(0, view_h), player.y, 0.2),
+    tx = math.lerp(R:random(0, view_w), player.x, 0.1),
+    ty = math.lerp(R:random(0, view_h), player.y, 0.1),
 
     c = c,
     len = R:random(16, 40),
@@ -178,17 +191,16 @@ function game.update(dt)
   if love.keyboard.isDown("w", "up") then iy = iy - 1 end
   if love.keyboard.isDown("s", "down") then iy = iy + 1 end
 
-  if love.mouse.isDown(1) and not mdown then
-    game.spawn_wisp(mouse_x, mouse_y, yellow)
-
-    
-  end
-  mdown = love.mouse.isDown(1)
-
   clap = false
   if not clap_down and love.keyboard.isDown("space") then
     clap = true
     game.sfx(game.sound.clap[1+R:random(2)], 1.2)
+
+    local cc = yellow
+    if shift > 30 then
+      cc = red
+    end
+    game.spawn_wisp(player.x, player.y-20, cc)
   end
   clap_down = love.keyboard.isDown("space")
 
@@ -229,7 +241,7 @@ function game.update(dt)
         tick = game.tick
       };
       player.fpi = (player.fpi + 1) % player.fpn
-      player.rfoot.c = mix(indigo, player.rfoot.c, 0.1)
+      player.rfoot.c = mix(mix(red, yellow, shift/60), player.rfoot.c, 0.1)
     end
     if player.foot_tick % 12 == 6 then
       player.lfoot.x = player.x + player.xspd * 4 - 2
@@ -241,7 +253,7 @@ function game.update(dt)
         tick = game.tick
       };
       player.fpi = (player.fpi + 1) % player.fpn
-      player.lfoot.c = mix(indigo, player.lfoot.c, 0.1)
+      player.lfoot.c = mix(mix(red, yellow, shift/60), player.lfoot.c, 0.1)
     end
     player.foot_tick = player.foot_tick + 1
   else 
@@ -273,12 +285,13 @@ function game.update(dt)
     if game.tick > o.tick+o.life then
       local r = R:random(100, 250) - (#sunflowers + #game.wisp)
       local c = yellow
-      if o.shift > 0.5 then c = red end
-      if r >= 100 then
-        game.spawn_wisp(o.x, o.y, c)
-      end
-      if r >= 200 then
-        game.spawn_wisp(o.x, o.y+1, c)
+      if o.shift < 0.5 then
+        if r >= 100 then
+          game.spawn_wisp(o.x, o.y, c)
+        end
+        if r >= 200 then
+          game.spawn_wisp(o.x, o.y+1, c)
+        end
       end
 
       sunflowers[i] = sunflowers[N]
@@ -331,12 +344,15 @@ function game.update(dt)
     wisp.y = wisp.y + ay*math.sin(0.01*wisp.aX*(game.tick+wisp.tick))
 
     if clap and (math.dist(wisp.x, wisp.y, player.x, player.y-10) < 30) then
-      if wisp.c == yellow then
-        wisp.c = red
-      elseif wisp.c == blue then
-        wisp.c = yellow
-      elseif wisp.c == red then
-        wisp.c = blue
+
+      if game.tick > wisp.tick then
+        if wisp.c == yellow then
+          wisp.c = blue
+        elseif wisp.c == blue then
+          wisp.c = red
+        elseif wisp.c == red then
+          wisp.c = yellow
+        end
       end
 
       wisp.aX = R:random(150, 300)/100
@@ -351,6 +367,9 @@ function game.update(dt)
       end
       if wisp.c == red then
         game.spawn_flower(wisp.x, wisp.y, 1.0)
+      end
+      if wisp.c == blue then
+        game.spawn_leaf(wisp.x, wisp.y, math.clamp(math.floor(0.5+(shift/60)), 0, 1))
       end
 
       game.wisp[i] = game.wisp[N]
@@ -547,13 +566,22 @@ function game.draw_flower(sunflower)
 end
 
 
-function game.draw_bigleaf(X, Y)
+function game.draw_bigleaf(leaf)
+  local X = leaf.x
+  local Y = leaf.y
   local rng = make_rng(X, Y)
   local deg2rad = math.pi/180
 
   local base_angle = -deg2rad*( rng:random(-30, 30) )
   local bx = math.cos(base_angle)
   local by = math.sin(base_angle) 
+
+  local ht = leaf.h/4
+
+  local gt = math.clamp((game.tick - leaf.tick)/60, 0, 1)
+
+  local s = rng:random(10, 15)
+  local h = rng:random(20, 30)
 
   function draw_leaf(i, j, a)
     local x = X + i*bx - j*by
@@ -563,7 +591,7 @@ function game.draw_bigleaf(X, Y)
 
     local c1
     local c2 = mix(grey, black, shift/60)
-    local c3 = mix(red, blue, shy)
+    local c3 = mix(indigo, blue, shy)
     if (x + y) % 16 < 4 then 
       c1 = mix(purple, indigo, shy)
       depth_shader:send("z", y-15)
@@ -572,6 +600,8 @@ function game.draw_bigleaf(X, Y)
       depth_shader:send("z", y-30)
     end
 
+    c1 = mix(c1, c2, math.clamp(5*gt, 0, 1))
+
     local angle = base_angle - deg2rad*(90+a+rng:random(-10, 10))
     local arc = deg2rad*rng:random(10, 15)
 
@@ -579,6 +609,7 @@ function game.draw_bigleaf(X, Y)
     local ay = math.sin(angle)
 
     local r1 = rng:random(4, 7) + (- math.abs(a))/30
+      r1 = r1 * math.clamp(game.tick - leaf.tick - 2*j, 0, 30)/30
     local r2 = r1 * rng:random(75, 85)/100
 
     local o2 = rng:random(-20, 20)/10.
@@ -598,6 +629,21 @@ function game.draw_bigleaf(X, Y)
       y1 = y1 + 1
     end
 
+    if math.dist(x1, y1, player.x, player.y) < r1*2 then
+      if clap then
+        leaf.h = leaf.h - 1
+
+        local r = rng:random(100) + (#leafs + #game.wisp)
+        if r < 35 then
+          if shift > 30 then
+            game.spawn_wisp(x1, y1, red)
+          else
+            game.spawn_wisp(x1, y1, blue)
+          end
+        end
+      end
+    end
+
     love.graphics.setColor(c2)
     love.graphics.circle("fill", x, y+1, r1, 10)
 
@@ -606,10 +652,7 @@ function game.draw_bigleaf(X, Y)
     love.graphics.circle("fill", x1, y1, r2, 10)
   end
 
-  local s = rng:random(10, 15)
-  local h = rng:random(20, 30)
-
-  for j = 0, h, 0.8*s do
+  for j = 0, h*ht, 0.8*s do
     local w = 12*(h-j)/h
 
     local o = rng:random(-5, 5)
@@ -639,8 +682,10 @@ function game.draw_wisp(wisp)
     end
   end
   
-  love.graphics.circle("fill", wisp.px[wisp.p], wisp.py[wisp.p], 3, 5)
-  
+  if wisp.p > 0 then
+    love.graphics.circle("fill", wisp.px[wisp.p], wisp.py[wisp.p], 3, 5)
+  end
+
   love.graphics.setColor(mix(indigo, white, shy+st))
   love.graphics.circle("fill", wisp.x, wisp.y, 2, 6)
   love.graphics.setColor(1, 1, 1, 1)
@@ -651,19 +696,23 @@ function game.draw()
 
   love.graphics.setLineStyle("rough")
 
-  -- game.draw_flower(100, view_h/2)
-  -- game.draw_flower(60, view_h/2)
+  local i = 1
+  local N = #leafs
+  while i <= N do 
+    game.draw_bigleaf(leafs[i])
 
-  -- game.draw_flower(140, view_h/2)
-  -- game.draw_flower(180, view_h/2)
-
-  for j = view_h - 200, view_h, 100 do 
-  for i = 0, view_w, 100 do
-    game.draw_bigleaf(i, j)
+    if leafs[i].h <= 0 then
+      leafs[i] = leafs[#leafs]
+      leafs[#leafs] = nil
+      N = N - 1
+    else
+      i = i + 1
+    end
   end
-  end
 
-  -- game.draw_bigleaf(mouse_x, mouse_y)
+  for i = 1, #sunflowers do 
+    game.draw_flower(sunflowers[i])
+  end
 
   game.draw_player()
 
@@ -671,11 +720,6 @@ function game.draw()
     game.draw_wisp(game.wisp[i])
   end
 
-  for i = 1, #sunflowers do 
-    if sunflowers[i] then
-      game.draw_flower(sunflowers[i])
-    end
-  end
 
 end
 
