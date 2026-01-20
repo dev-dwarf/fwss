@@ -26,7 +26,6 @@ local wisp_len = 10
 game = game or { 
   tick = 0,
 
-  wisps = 0,
   wisp = {},
 
   sound = {
@@ -40,7 +39,6 @@ function game.load()
   game.sound.clap[2] = love.audio.newSource("audio/clap2.ogg", "static")
   game.sound.clap[3] = love.audio.newSource("audio/clap3.ogg", "static")
 end
-
 
 player = player or {
   x = view_w/2,
@@ -62,14 +60,13 @@ player = player or {
   lhand = {
     x = 0,
     y = 0,
-    c = white,
+    c = indigo,
   },
-
 
   rhand = {
     x = 0,
     y = 0,
-    c = white,
+    c = indigo,
   },
 
   fpn = 60,
@@ -134,10 +131,39 @@ function game.sfx(src, pitch)
   s:play()
 end
 
+
+function game.spawn_wisp(x,y,c)
+  game.wisp[#game.wisp+1] = { 
+    x = x,
+    y = y,
+    tick = game.tick,
+    life =  R:random(5, 10)*60,
+
+    p = 0, px = {}, py = {},
+    aX = R:random(150, 300)/100,
+    aY = R:random(150, 300)/100,
+
+    tx = math.lerp(R:random(0, view_w), player.x, 0.2),
+    ty = math.lerp(R:random(0, view_h), player.y, 0.2),
+
+    c = c,
+    len = R:random(16, 40),
+    shift = 0,
+  }
+end
+
+function game.spawn_flower(x,y,shift)
+  sunflowers[1+#sunflowers] = {
+    x = x,
+    y = y,
+    tick = game.tick,
+    life = 60,
+    tlife = R:random(30, 40)*60,
+    shift = shift, tshift = shift
+  }
+end
+
 function game.update(dt)
-
-  target_stuff = 
-
   love.graphics.push()
   love.graphics.scale(window_scale, window_scale)
   mouse_x, mouse_y = love.graphics.inverseTransformPoint(love.mouse.getPosition())
@@ -153,36 +179,11 @@ function game.update(dt)
   if love.keyboard.isDown("s", "down") then iy = iy + 1 end
 
   if love.mouse.isDown(1) and not mdown then
-    game.wisps = game.wisps + 1
-    game.wisp[game.wisps] = { 
-      x = mouse_x,
-      y = mouse_y,
-      tick = game.tick,
-      p = 0, px = {}, py = {},
-      aX = R:random(150, 300)/100,
-      aY = R:random(150, 300)/100,
-      c = yellow,
-      len = R:random(16, 40),
-      shift = 0,
-    }
+    game.spawn_wisp(mouse_x, mouse_y, yellow)
 
-    sunflowers[1+#sunflowers] = {
-      x = mouse_x,
-      y = mouse_y,
-      tick = game.tick,
-      life = 60,
-      tlife = R:random(30, 40)*60,
-      shift = 0, tshift = 0
-    }
+    
   end
   mdown = love.mouse.isDown(1)
-
-  if love.keyboard.isDown("lshift") then
-    shift = shift + 3
-  else 
-    shift = shift - 3
-  end
-  shift = math.clamp(shift, 0, 60)
 
   clap = false
   if not clap_down and love.keyboard.isDown("space") then
@@ -253,21 +254,80 @@ function game.update(dt)
     end
   end 
 
+  local i = 1
+  local N = #sunflowers
+  local T_shift = 0
+  while i <= N do
+    local o = sunflowers[i]
 
-  for i = 1, game.wisps, 1 do
+    T_shift = T_shift + o.shift
+
+    if clap and (math.dist(o.x, o.y, player.x, player.y-10) < 30) then
+      o.tshift = 1.0 - o.tshift
+      o.tlife = math.lerp(o.life, game.tick-o.tick, 0.30) -- take away 30% of remaining life
+    end
+
+    o.shift = math.lerp(o.shift, o.tshift, 0.5)
+    o.life = math.lerp(o.tlife, o.life, 0.5)
+
+    if game.tick > o.tick+o.life then
+      local r = R:random(100, 250) - (#sunflowers + #game.wisp)
+      local c = yellow
+      if o.shift > 0.5 then c = red end
+      if r >= 100 then
+        game.spawn_wisp(o.x, o.y, c)
+      end
+      if r >= 200 then
+        game.spawn_wisp(o.x, o.y+1, c)
+      end
+
+      sunflowers[i] = sunflowers[N]
+      sunflowers[N] = nil
+      N = N - 1
+    else
+      i = i + 1
+    end
+  end
+
+  if T_shift > 0.5*N then
+    shift = shift + 3
+  else 
+    shift = shift - 3
+  end
+  shift = math.clamp(shift, 0, 60)
+
+  local i = 1
+  local N = #game.wisp
+  while i <= N do
     local wisp = game.wisp[i]
+
+    local lt = (game.tick - wisp.tick)/wisp.life
+    local st = math.clamp(lt * 4 - 3, 0, 1)
+
+    local tx = player.x
+    local ty = player.y
+    local aY = wisp.aY
+
+    if lt > 0.5 then
+      tx = wisp.tx
+      ty = wisp.ty
+      aY = wisp.aX
+    end
 
     wisp.p = (wisp.p + 1) % wisp.len
     wisp.px[wisp.p] = wisp.x
     wisp.py[wisp.p] = wisp.y
 
-    wisp.x = math.lerp(wisp.x, player.x, 0.04)
-    wisp.y = math.lerp(wisp.y, player.y, 0.04)
+    wisp.x = math.lerp(wisp.x, tx, math.lerp(0.04, 0.6, st))
+    wisp.y = math.lerp(wisp.y, ty, math.lerp(0.04, 0.6, st))
 
     local ax = wisp.aX*(1 - math.clamp(math.abs(wisp.x - wisp.px[wisp.p])/10, 0, 1))
     local ay = wisp.aY*(1 - math.clamp(math.abs(wisp.y - wisp.py[wisp.p])/10, 0, 1))
 
-    wisp.x = wisp.x + ax*math.cos(0.01*wisp.aY*(game.tick+wisp.tick))
+    ax = ax*(1 - st)
+    ay = ay*(1 - st)
+
+    wisp.x = wisp.x + ax*math.cos(0.01*aY*(game.tick+wisp.tick))
     wisp.y = wisp.y + ay*math.sin(0.01*wisp.aX*(game.tick+wisp.tick))
 
     if clap and (math.dist(wisp.x, wisp.y, player.x, player.y-10) < 30) then
@@ -282,25 +342,19 @@ function game.update(dt)
       wisp.aX = R:random(150, 300)/100
       wisp.aY = R:random(150, 300)/100
     end 
-  end
 
+    if game.tick > wisp.tick+wisp.life then
 
-  local i = 1
-  local N = #sunflowers
-  while i <= N do
-    local o = sunflowers[i]
+      -- spawn a thing
+      if wisp.c == yellow then
+        game.spawn_flower(wisp.x, wisp.y, 0.0)
+      end
+      if wisp.c == red then
+        game.spawn_flower(wisp.x, wisp.y, 1.0)
+      end
 
-    if clap and (math.dist(o.x, o.y, player.x, player.y-10) < 30) then
-      o.tshift = 1.0 - o.tshift
-      o.tlife = math.lerp(o.life, game.tick-o.tick, 0.30) -- take away 30% of remaining life
-    end
-
-    o.shift = math.lerp(o.shift, o.tshift, 0.5)
-    o.life = math.lerp(o.tlife, o.life, 0.5)
-
-    if game.tick > o.tick+o.life then
-      sunflowers[i] = sunflowers[N]
-      sunflowers[N] = nil
+      game.wisp[i] = game.wisp[N]
+      game.wisp[N] = nil
       N = N - 1
     else
       i = i + 1
@@ -546,7 +600,6 @@ function game.draw_bigleaf(X, Y)
 
     love.graphics.setColor(c2)
     love.graphics.circle("fill", x, y+1, r1, 10)
-    -- love.graphics.circle("fill", x1, y1+1, r1, 10)
 
     love.graphics.setColor(c1)
     love.graphics.arc("fill", x, y, r1, angle+arc, angle+2*(math.pi - arc), 10)
@@ -571,11 +624,14 @@ end
 function game.draw_wisp(wisp)
   depth_shader:send("z", wisp.y+8)
 
+  local lt = (game.tick - wisp.tick)/wisp.life
+  local st = math.clamp(lt * 4 - 3, 0, 1) 
+
   local shy = shift/60
   shy = math.lerp(shy, 1 - shy, wisp.shift)
 
   for i = 0, wisp_len-2, 1 do
-   love.graphics.setColor(wisp.c)
+   love.graphics.setColor(mix(black, wisp.c, st))
     local I = (wisp.p + wisp.len - i) % wisp.len
     local J = (wisp.p + wisp.len - i-1) % wisp.len
     if wisp.px[I] and wisp.px[J] then
@@ -585,7 +641,7 @@ function game.draw_wisp(wisp)
   
   love.graphics.circle("fill", wisp.px[wisp.p], wisp.py[wisp.p], 3, 5)
   
-  love.graphics.setColor(mix(black, white, shy))
+  love.graphics.setColor(mix(indigo, white, shy+st))
   love.graphics.circle("fill", wisp.x, wisp.y, 2, 6)
   love.graphics.setColor(1, 1, 1, 1)
 end
@@ -611,7 +667,7 @@ function game.draw()
 
   game.draw_player()
 
-  for i = 1, game.wisps, 1 do
+  for i = 1, #game.wisp do
     game.draw_wisp(game.wisp[i])
   end
 
