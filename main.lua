@@ -178,10 +178,7 @@ function love.draw()
 
 
   love.graphics.clear(black)
-
   love.graphics.draw(canvas, 0, 0)
-
-
 
   love.graphics.setBlendMode("add")
   love.graphics.setColor(bloom, bloom, bloom, 1)
@@ -190,6 +187,9 @@ function love.draw()
 
   love.graphics.pop()
   love.graphics.setColor(1, 1, 1, 1)
-  love.graphics.print(string.format("avg frame: %.3f ms", 1000 * love.timer.getAverageDelta()), 10, 10)
+
+  if lurker then
+    love.graphics.print(string.format("avg frame: %.3f ms", 1000 * love.timer.getAverageDelta()), 10, 10)
+  end
 end
 
