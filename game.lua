@@ -132,6 +132,7 @@ function game.sfx(src, pitch)
   local s = src:clone()
   local p = pitch or 1.0
   s:setPitch(p + R:random(-25, 25)/1000)
+  s:setVolume(0.33)
   s:play()
 end
 
